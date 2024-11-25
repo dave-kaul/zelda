@@ -9,7 +9,7 @@ class Link:
         self.settings = zelda_game.settings
 
         # Load Link's images and initialize rect
-        self.image_right = pygame.image.load('media/link.png')  # Default image facing right
+        self.image_right = pygame.image.load(self.settings.link_image)  # Default image facing right
         self.image_left = pygame.transform.flip(self.image_right, True, False)  # Flipped image for facing left
         self.image_right = pygame.transform.scale(self.image_right, (130, 100))
         self.image_left = pygame.transform.scale(self.image_left, (130, 100))
@@ -26,6 +26,9 @@ class Link:
         self.moving_right = False
         self.is_jumping = False
 
+        # Dashing
+        self.is_dashing = False
+
         # Jump mechanics
         self.jump_velocity = self.settings.jump_velocity  # Initial jump velocity
         self.gravity = self.settings.gravity  # Gravity effect
@@ -37,18 +40,35 @@ class Link:
         self.facing_left = False
 
         # Load jump sound
-        self.jump_sound = pygame.mixer.Sound('media/link_jump.wav')
-        self.jump_sound.set_volume(0.6)
+        self.jump_sound = pygame.mixer.Sound(self.settings.jump_sound)
+        self.jump_sound.set_volume(0.5)
 
     def update(self):
         """Update Link's position based on movement flags and joystick input."""
+
+
+        # Handle dash movement
+        if self.is_dashing:
+            if self.settings.dash_timer > 0:
+                self.rect.x += self.settings.dash_speed if not self.facing_left else -self.settings.dash_speed
+                self.settings.dash_timer -= 1
+            else:
+                self.is_dashing = False
+                self.settings.cooldown_timer = self.settings.dash_cooldown
+
+
         # Horizontal movement
-        if self.moving_left and self.rect.left > 0:
-            self.rect.x -= self.settings.link_speed
-            self.facing_left = True
-        if self.moving_right and self.rect.right < self.screen_rect.right:
-            self.rect.x += self.settings.link_speed
-            self.facing_left = False
+        elif self.settings.cooldown_timer == 0:
+            if self.moving_left and self.rect.left > 0:
+                self.rect.x -= self.settings.link_speed
+                self.facing_left = True
+            if self.moving_right and self.rect.right < self.screen_rect.right:
+                self.rect.x += self.settings.link_speed
+                self.facing_left = False
+
+         # Decrease cooldown timer if it's active
+        if self.settings.cooldown_timer > 0:
+            self.settings.cooldown_timer -= 1
 
         # Joystick horizontal movement
         if self.joystick:
@@ -64,7 +84,7 @@ class Link:
 
             # Check if Link has landed
             if self.rect.bottom >= self.screen_rect.bottom - 80:
-                self.rect.bottom = self.screen_rect.bottom - 80  # Reset position
+                self.rect.bottom = self.screen_rect.bottom - 80  # 80 makes sure Link is not a bottom of screen
                 self.is_jumping = False
                 self.jump_velocity = self.settings.jump_velocity  # Reset jump velocity
 
@@ -73,6 +93,12 @@ class Link:
         if not self.is_jumping:  # Only jump if not already in the air
             self.is_jumping = True
             self.jump_sound.play()  # Play jump sound
+
+    def dash(self):
+        """Activate the dash mechanic."""
+        if not self.is_dashing and self.settings.cooldown_timer == 0:
+            self.is_dashing = True
+            self.settings.dash_timer = self.settings.dash_duration
 
     def blitme(self):
         """Draw Link at its current location."""
